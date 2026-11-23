@@ -79,3 +79,5 @@ These tools only edit timing that already exists. If you have a script and its v
 ## License
 
 MIT. Copyright (c) 2026 Yana AI Builders. See [LICENSE](LICENSE).
+
+Made by Yana Li. Follow updates on [X](https://x.com/woshiyanali).

@@ -79,3 +79,5 @@ python3 -m unittest discover -s skills/subtitle-tools/tests -v
 ## 许可证
 
 MIT。Copyright (c) 2026 Yana AI Builders。见 [LICENSE](LICENSE)。
+
+作者 Yana Li，更新动态见 [X](https://x.com/woshiyanali)。
