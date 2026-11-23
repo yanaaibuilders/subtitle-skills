@@ -74,7 +74,7 @@ python3 -m unittest discover -s skills/subtitle-tools/tests -v
 
 ## 需要从音频生成时间轴？
 
-这些工具只能编辑已经存在的时间轴。如果你手里有文稿和对应的配音，需要按音频生成精确的时间轴，可以用同一团队做的付费服务 TimedSubs：[文稿转 SRT](https://timedsubs.com/en/features/script-to-srt?utm_source=github&utm_campaign=subtitle-skills)。
+这些工具只能编辑已经存在的时间轴。如果你手里有文稿和对应的配音，需要按音频生成精确的时间轴，可以用同一团队做的付费服务 TimedSubs：[文稿转 SRT](https://timedsubs.com/zh/features/script-to-srt?utm_source=github&utm_campaign=subtitle-skills)。
 
 ## 许可证
 
