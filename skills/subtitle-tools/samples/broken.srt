@@ -1,0 +1,22 @@
+﻿1
+00:00:01,000 --> 00:00:03,000
+This file has a few problems.
+
+2
+00:00:02,500 --> 00:00:04,000
+This cue overlaps the first one.
+
+3
+00:00:05,000 --> 00:00:05,000
+This one has zero duration.
+
+5
+00:00:07,000 --> 00:00:06,000
+This one ends before it starts, and its number skips 4.
+6
+00:00:08,000 --> 00:00:09,500
+The blank line before this cue is missing.
+
+7
+00:00:10,000 -> 00:00:11,000
+The arrow on this timing line is wrong.

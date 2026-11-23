@@ -1,0 +1,22 @@
+WEBVTT - Paper boat, part two
+Kind: captions
+Language: en
+
+NOTE Sample file written for this repository.
+
+STYLE
+::cue(.tip) { color: yellow; }
+
+intro
+00:00:20.000 --> 00:00:23.000 align:start position:10%
+<v Host>Now turn the boat inside out.</v>
+
+00:00:23.400 --> 00:00:26.000
+Pull the sides apart &amp; flatten it.
+
+tip-1
+00:00:26.200 --> 00:00:29.500 line:0
+<c.tip>Go slowly at the corners.</c>
+
+00:00:29.800 --> 00:00:32.000
+<00:00:29.800>Pull <00:00:30.600>and <00:00:31.200>done.

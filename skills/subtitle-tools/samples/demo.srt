@@ -1,0 +1,24 @@
+1
+00:00:01,000 --> 00:00:03,200
+Welcome back to the workshop.
+
+2
+00:00:03,400 --> 00:00:06,000
+Today we fold a paper boat
+from a single square sheet.
+
+3
+00:00:06,300 --> 00:00:08,900
+<i>Step one:</i> fold the sheet in half.
+
+4
+00:00:09,100 --> 00:00:12,000
+Crease it hard & open it again.
+
+5
+00:00:12,400 --> 00:00:15,500
+{\an8}Tip: a ruler makes sharper folds.
+
+6
+00:00:15,800 --> 00:00:19,500
+Bring both corners < the centre line.

@@ -1,0 +1,2 @@
+# broken.srt 故意带 BOM 和 CRLF，用来演示 check，不能让 git 改换行
+skills/subtitle-tools/samples/broken.srt -text
