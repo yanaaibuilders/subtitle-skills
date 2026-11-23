@@ -75,11 +75,13 @@ class Subtitle:
 # 读取时故意宽松（逗号/点、缺小时、毫秒位数不足都能读），再用严格格式单独报告
 _TIME = r"(?:(\d+):)?(\d+):(\d+)(?:[.,](\d+))?"
 _LOOSE_TIMING = re.compile(r"^\s*" + _TIME + r"\s*-->\s*" + _TIME + r"(.*)$")
+# re.ASCII：严格格式只认 0-9，阿拉伯-印度数字等能被宽松读取，但要报出来
 _SRT_STRICT = re.compile(
-    r"^\s*\d{2,}:\d{2}:\d{2},\d{3}\s+-->\s+\d{2,}:\d{2}:\d{2},\d{3}(?:\s|$)"
+    r"^\s*\d{2,}:\d{2}:\d{2},\d{3}\s+-->\s+\d{2,}:\d{2}:\d{2},\d{3}(?:\s|$)", re.ASCII
 )
 _VTT_STRICT = re.compile(
-    r"^(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}[ \t]+-->[ \t]+(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}(?:[ \t]|$)"
+    r"^(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}[ \t]+-->[ \t]+(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}(?:[ \t]|$)",
+    re.ASCII,
 )
 _DIGITS = re.compile(r"[0-9]+")
 
@@ -103,7 +105,9 @@ def format_time(ms, fmt):
 
 
 def format_offset(ms):
-    return f"{'+' if ms >= 0 else '-'}{abs(ms) / 1000:.3f}s"
+    # 用整数运算：超大偏移转浮点会溢出
+    seconds, millis = divmod(abs(ms), 1000)
+    return f"{'+' if ms >= 0 else '-'}{seconds}.{millis:03d}s"
 
 
 _DURATION = re.compile(
@@ -166,7 +170,7 @@ def _decode(data, fmt, sub):
         return body.decode("utf-8")
     except UnicodeDecodeError as exc:
         sub.encoding = "invalid"
-        line = body[:exc.start].count(b"\n") + 1
+        line = len(re.split(rb"\r\n|\r|\n", body[:exc.start]))
         sub.add(ERROR, "not-utf8", line,
                 f"not valid UTF-8 (byte 0x{body[exc.start]:02x}); re-save the file as UTF-8 "
                 "(this tool does not guess other encodings)")
@@ -299,6 +303,10 @@ def _parse_timing(lineno, line, sub):
 def _cues_from_block(block, sub):
     """One blank-line block usually holds one cue; a missing blank line makes it hold several."""
     timing_at = [k for k, (_, line) in enumerate(block) if "-->" in line]
+    # SRT 正文里可以出现 "-->"；只有长得像时间行的才算漏了空行的下一条。
+    # WebVTT 不同：正文含 "-->" 时浏览器会结束当前 cue，这里照浏览器的读法
+    if sub.fmt == "srt":
+        timing_at = timing_at[:1] + [k for k in timing_at[1:] if _LOOSE_TIMING.match(block[k][1])]
     if not timing_at:
         sub.add(ERROR, "no-timing", block[0][0],
                 "text without a timing line (skipped); a broken --> arrow or a blank line inside a cue causes this")
@@ -440,7 +448,7 @@ _SRT_TAG = re.compile(r"</?[A-Za-z][^<>\n]*>")
 _VTT_TAG = re.compile(r"</?[A-Za-z][^<>\n]*>|<\d[^<>\n]*>")
 _BASIC_TAG = re.compile(r"<(/?)([ibu])(?:[.\s][^>]*)?>", re.IGNORECASE)
 _OVERRIDE = re.compile(r"\{\\[^{}]*\}")
-_VTT_ENTITY = re.compile(r"&(?:amp|lt|gt|nbsp|lrm|rlm|#\d+|#x[0-9A-Fa-f]+);")
+_VTT_ENTITY = re.compile(r"&(?:amp|lt|gt|nbsp|lrm|rlm|#[0-9]+|#[xX][0-9A-Fa-f]+);")
 
 
 def _vtt_unescape(text):
@@ -607,12 +615,18 @@ def cmd_convert(args):
     return 0
 
 
-def _shift_inline_timestamps(text, offset):
+def _shift_inline_timestamps(text, offset, start_clamped):
     # WebVTT 卡拉 OK 式的 <00:00:01.000> 行内时间也要跟着平移
     def move(match):
-        h, m, s, frac = re.fullmatch(_TIME, match.group(1)).groups()
-        return "<" + format_time(max(0, _to_ms(h, m, s, frac) + offset), "vtt") + ">"
-    return re.sub(r"<((?:\d+:)?\d{2}:[0-5]\d\.\d{3})>", move, text)
+        ms = _to_ms(*re.fullmatch(_TIME, match.group(1)).groups())
+        if ms is None:
+            return match.group(0)
+        moved = ms + offset
+        # 行内时间必须晚于 cue 开始；被 --clamp 推到 0 或更早的标记删掉，文字保留
+        if moved < 0 or (start_clamped and moved == 0):
+            return ""
+        return "<" + format_time(moved, "vtt") + ">"
+    return re.sub(r"<((?:\d+:)?\d{2}:\d{2}\.\d{3})>", move, text, flags=re.ASCII)
 
 
 def cmd_shift(args):
@@ -634,9 +648,10 @@ def cmd_shift(args):
         if args.clamp and offset < 0 and end <= 0:
             dropped += 1
             continue
-        if start < 0:
+        start_clamped = start < 0
+        if start_clamped:
             start, clamped = 0, clamped + 1
-        text = _shift_inline_timestamps(c.text, offset) if sub.fmt == "vtt" else c.text
+        text = _shift_inline_timestamps(c.text, offset, start_clamped) if sub.fmt == "vtt" else c.text
         shifted.append(dataclasses.replace(c, start=start, end=end, text=text))
     if not shifted:
         raise SubtitleError("shift refused: every cue would end at or before 0. Nothing was written.")

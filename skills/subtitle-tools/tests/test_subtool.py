@@ -3,6 +3,7 @@
 import contextlib
 import io
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -433,6 +434,49 @@ class Commands(TempDirCase):
                          "WEBVTT - x\n\nc5\n00:00:05.000 --> 00:00:05.500\nT5\n")
         code, _, err = run("split", src, "--every", "0")
         self.assertEqual(code, 1)
+
+
+class EdgeCaseRegressions(TempDirCase):
+    def test_arrow_inside_srt_text_is_kept(self):
+        sub = srt("1\n00:00:01,000 --> 00:00:02,000\nA --> B\n")
+        self.assertEqual(codes(sub), [])
+        self.assertEqual(sub.cues[0].text, "A --> B")
+        run("convert", self.write("a.srt", "1\n00:00:01,000 --> 00:00:02,000\nA --> B\n"), "-o", self.dir / "a.vtt")
+        self.assertIn("A --&gt; B", (self.dir / "a.vtt").read_text(encoding="utf-8"))
+
+    def test_invalid_inline_timestamp_is_left_alone(self):
+        src = self.write("in.vtt", "WEBVTT\n\n00:01.000 --> 00:03.000\n<60:01.000>A\n")
+        code, _, _ = run("shift", src, "--by", "1", "-o", self.dir / "o.vtt")
+        self.assertEqual(code, 0)
+        self.assertIn("<60:01.000>A", (self.dir / "o.vtt").read_text(encoding="utf-8"))
+
+    def test_clamp_drops_inline_timestamps_pushed_to_zero(self):
+        src = self.write("in.vtt", "WEBVTT\n\n00:01.000 --> 00:04.000\n<00:01.200>A <00:01.500>B <00:03.000>C\n")
+        run("shift", src, "--by=-2s", "--clamp", "-o", self.dir / "o.vtt")
+        self.assertIn("00:00:00.000 --> 00:00:02.000\nA B <00:00:01.000>C\n",
+                      (self.dir / "o.vtt").read_text(encoding="utf-8"))
+
+    def test_uppercase_hex_reference(self):
+        self.assertEqual(subtool._plain_text("&#X41;&#x42;&#67;", "vtt"), "ABC")
+
+    def test_huge_offset_does_not_crash(self):
+        self.assertEqual(subtool.format_offset(10 ** 400), "+" + str(10 ** 397) + ".000s")
+        self.assertEqual(subtool.format_offset(-1500), "-1.500s")
+
+    def test_non_ascii_digits_are_reported(self):
+        sub = vtt("WEBVTT\n\n00:0١.000 --> 00:02.000\nA\n")
+        self.assertIn("nonstandard-time", codes(sub))
+
+    def test_invalid_utf8_line_number_with_cr_newlines(self):
+        sub = subtool.parse(b"1\r00:00:01,000 --> 00:00:02,000\r\xff\r", "srt")
+        self.assertEqual(next(i.line for i in sub.issues if i.code == "not-utf8"), 3)
+
+    def test_demo_vtt_inline_timestamps_are_inside_their_cue(self):
+        sub = subtool.parse_file("demo.vtt", (SAMPLES / "demo.vtt").read_bytes())
+        for cue in sub.cues:
+            for raw in re.findall(r"<((?:\d+:)?\d{2}:\d{2}\.\d{3})>", cue.text):
+                ms = subtool.parse_duration(raw, signed=False)
+                self.assertTrue(cue.start < ms < cue.end, raw)
 
 
 class Samples(TempDirCase):
